@@ -1,0 +1,78 @@
+# if a Container is created in the default-mem-example namespace, and the
+# Container does not specify its own values for memory request and memory
+# limit, the Container is given a default memory request of 256 MiB and a
+# default memory limit of 512 MiB.
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: mem-limit-range
+spec:
+  limits:
+  - default:
+      memory: 512Mi
+    defaultRequest:
+      memory: 256Mi
+    type: Container
+
+
+
+# if a Container is created in the default-cpu-example namespace, and the
+# Container does not specify its own values for CPU request and CPU limit,
+# the Container is given a default CPU request of 0.5 and a default CPU limit of 1.
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: cpu-limit-range
+spec:
+  limits:
+  - default:
+      cpu: 1
+    defaultRequest:
+      cpu: 0.5
+    type: Container
+
+
+# Configure Minimum and Maximum Memory Constraints for a Namespace
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: mem-min-max-demo-lr
+spec:
+  limits:
+  - max:
+      memory: 1Gi
+    min:
+      memory: 500Mi
+    type: Container
+
+# Configure Minimum and Maximum CPU Constraints for a Namespace
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: cpu-min-max-demo-lr
+spec:
+  limits:
+  - max:
+      cpu: "800m"
+    min:
+      cpu: "200m"
+    type: Container
+
+
+# a PVC requesting 10Gi of storage would be rejected because it exceeds the 2Gi max.
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: storagelimits
+spec:
+  limits:
+  - type: PersistentVolumeClaim
+    max:
+      storage: 2Gi
+    min:
+      storage: 1Gi

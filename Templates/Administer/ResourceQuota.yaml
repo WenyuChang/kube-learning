@@ -1,0 +1,35 @@
+# the namespace has a quota of two Pods
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: pod-demo
+spec:
+  hard:
+    pods: "2"
+
+
+# configure quotas for API objects, including PersistentVolumeClaims and Services.
+# A quota restricts the number of objects, of a particular type, that can be
+# created in a namespace.
+#   String	                        API Object
+# --------------------------------------------------
+#   "pods"	                 |         Pod
+#   "services                |       Service
+# "replicationcontrollers"	 |    ReplicationController
+# "resourcequotas"	         |      ResourceQuota
+#   "secrets"	             |        Secret
+#   "configmaps"	         |       ConfigMap
+#   "persistentvolumeclaims" | 	PersistentVolumeClaim
+#   "services.nodeports"	 | Service of type NodePort
+#   "services.loadbalancers" | Service of type LoadBalancer
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: object-quota-demo
+spec:
+  hard:
+    persistentvolumeclaims: "1"
+    services.loadbalancers: "2"
+    services.nodeports: "0"
