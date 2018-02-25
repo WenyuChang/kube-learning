@@ -1,0 +1,217 @@
+# https://kubernetes.io/docs/concepts/workloads/pods/pod/
+
+---
+apiVersion: v1
+kind: Pod
+Metedata:
+  name: my-first-pod
+  label:
+    app: myapp
+spec:
+  # the runAsUser field specifies that for any Containers in the Pod,
+  # the first process runs with user ID 1000. The fsGroup field specifies
+  # that group ID 2000 is associated with all Containers in the Pod.
+  # Group ID 2000 is also associated with the volume mounted at /data/demo
+  # and with any files created in that volume.
+  securityContext:
+    runAsUser: 1000
+    fsGroup: 2000
+
+  # These containers are run during pod initialization
+#  initContainers:
+#  - name: install
+#    image: busybox
+#    command:
+#    - wget
+#    - "-O"
+#    - "/work-dir/index.html"
+#    - http://kubernetes.io
+
+  container:
+  - name: myapp-container
+    image: busybox
+    command: ['sh', '-c', 'echo Hello Kubernetes! && sleep 3600']
+
+    # AllowPrivilegeEscalation: Controls whether a process can gain more privileges than its parent process.
+    securityContext:
+      # Specify security context for container
+      # runAsUser: 2000
+
+      # Linux Capability
+      # http://man7.org/linux/man-pages/man7/capabilities.7.html
+      capabilities:
+        add: ["NET_ADMIN", "SYS_TIME"]
+      # Assign SELinux labels to a Container
+      seLinuxOptions:
+        level: "s0:c123,c456"
+      allowPrivilegeEscalation: false
+    resources:
+      # The Container has a memory request of 100 MiB and a memory limit of 200 MiB
+      # a Container is not allowed to use more than its memory limit. If a Container
+      # allocates more memory than its limit, the Container becomes a candidate for
+      # termination. If the Container continues to consume memory beyond its limit,
+      # the Container is terminated.
+      limits:
+        memory: "200Mi"
+
+        # Fractional values are allowed. A Container that requests 0.5 cpu is guaranteed half
+        # as much CPU as a Container that requests 1 cpu. You can use the suffix m to mean milli.
+        # For example 100m cpu, 100 millicpu, and 0.1 cpu are all the same. Precision finer than
+        # 1m is not allowed.
+        cpu: "1"
+      requests:
+        memory: "100Mi"
+        cpu: "0.5"
+    args:
+      # The -mem-total 150Mi argument tells the Container to attempt to allocate 150 MiB of memory.
+      - -mem-total
+      - 150Mi
+      - -mem-alloc-size
+      - 10Mi
+      - -mem-alloc-sleep
+      - 1s
+
+    # The Container has handlers for the postStart and preStop events.
+    # Kubernetes sends the postStart event immediately after the Container is created.
+    # There is no guarantee, however, that the postStart handler is called before the Container’s
+    # entrypoint is called. The postStart handler runs asynchronously relative to the Container’s
+    # code, but Kubernetes’ management of the container blocks until the postStart handler completes.
+    # The Container’s status is not set to RUNNING until the postStart handler completes.
+    #
+    # Kubernetes sends the preStop event immediately before the Container is terminated.
+    # Kubernetes’ management of the Container blocks until the preStop handler completes,
+    # unless the Pod’s grace period expires
+    lifecycle:
+      postStart:
+        exec:
+          command: ["/bin/sh", "-c", "echo Hello from the postStart handler > /usr/share/message"]
+      preStop:
+        exec:
+          command: ["/usr/sbin/nginx","-s","quit"]
+
+    # Expose Pod Information to Containers Through Environment Variables
+    env:
+      - name: MY_NODE_NAME
+        valueFrom:
+          fieldRef:
+            fieldPath: spec.nodeName
+
+    # Kubernetes retrieves termination messages from the termination message file
+    # specified in the terminationMessagePath field of a Container, which as a
+    # default value of /dev/termination-log
+    # Kubernetes use the contents from the specified file to populate the Container’s
+    # status message on both success and failure
+    terminationMessagePath: /dev/termination-log
+    # Default is `File`.
+    # You can set to `FallbackToLogsOnError”` telling Kubernetes to use the last chunk of container log output if
+    # the termination message file is empty and the container exited with an error. The log output is limited to
+    # 2048 bytes or 80 lines, whichever is smaller.
+    terminationMessagePolicy: File
+
+---
+# Advanced liveness probe example
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    test: liveness
+  name: liveness-http
+spec:
+  # restartPolicy field with possible values Always, OnFailure, and Never
+  restartPolicy: Always
+
+  # This means that the pod will get scheduled on a node that has a disktype=ssd label.
+  # nodeSelector:
+  #   disktype: ssd
+  containers:
+  - args:
+    - /server
+    image: k8s.gcr.io/liveness
+
+    livenessProbe:
+    # Indicates whether the Container is running. If the liveness probe fails,
+    # the kubelet kills the Container, and the Container is subjected to its
+    # restart policy. If a Container does not provide a liveness probe, the
+    # default state is Success.
+      httpGet:
+        # when "host" is not defined, "PodIP" will be used
+        # host: my-host
+        # when "scheme" is not defined, "HTTP" scheme will be used. Only "HTTP" and "HTTPS" are allowed
+        # scheme: HTTPS
+        path: /healthz
+        port: 8080
+        httpHeaders:
+        - name: X-Custom-Header
+          value: Awesome
+      # Number of seconds after the container has started before liveness or readiness probes are initiated.
+      initialDelaySeconds: 15
+      # How often (in seconds) to perform the probe.
+      periodSeconds: 10
+      # Number of seconds after which the probe times out.
+      timeoutSeconds: 1
+      # Minimum consecutive successes for the probe to be considered successful after having failed.
+      # Defaults to 1. Must be 1 for liveness. Minimum value is 1.
+      successThreshold: 1
+      # When a Pod starts and the probe fails, Kubernetes will try failureThreshold times before giving up.
+      # Giving up in case of liveness probe means restarting the Pod. In case of readiness probe the Pod
+      # will be marked Unready. Defaults to 3. Minimum value is 1.
+      failureThreshold: 3
+      # Define a liveness command
+      # exec:
+      #   command:
+      #   - cat
+      #   - /tmp/healthy
+
+      # Define a TCP liveness probe
+      # the kubelet will attempt to open a socket to your container on the specified port.
+      # If it can establish a connection, the container is considered healthy, if it can’t
+      # it is considered a failure.
+      # tcpSocket:
+      #  port: 8080
+
+
+    readinessProbe:
+      exec:
+        command:
+        - cat
+        - /tmp/healthy
+      initialDelaySeconds: 5
+      periodSeconds: 5
+    # Indicates whether the Container is ready to service requests.
+    # If the readiness probe fails, the endpoints controller removes
+    # the Pod’s IP address from the endpoints of all Services that
+    # match the Pod. The default state of readiness before the initial
+    # delay is Failure. If a Container does not provide a readiness probe,
+    # the default state is Success.
+    #
+    # Readiness probes are configured similarly to liveness probes.
+    # The only difference is that you use the readinessProbe field
+    # instead of the livenessProbe field.
+
+    name: liveness
+
+
+---
+# Init Containers
+# If multiple Init Containers are specified for a Pod, those Containers are run one at
+# a time in sequential order. Each must succeed before the next can run. When all of the
+# Init Containers have run to completion, Kubernetes initializes the Pod and runs the
+# application Containers as usual.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod
+  labels:
+    app: myapp
+spec:
+  containers:
+  - name: myapp-container
+    image: busybox
+    command: ['sh', '-c', 'echo The app is running! && sleep 3600']
+  initContainers:
+  - name: init-myservice
+    image: busybox
+    command: ['sh', '-c', 'until nslookup myservice; do echo waiting for myservice; sleep 2; done;']
+  - name: init-mydb
+    image: busybox
+    command: ['sh', '-c', 'until nslookup mydb; do echo waiting for mydb; sleep 2; done;']

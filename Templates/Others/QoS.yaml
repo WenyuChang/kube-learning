@@ -1,0 +1,3 @@
+# Guaranteed: Every Container in the Pod must have a memory/CPU limit and a memory/CPU request, and they must be the same.
+# Burstable: The Pod does not meet the criteria for QoS class Guaranteed. But at least one container has specified memory/CPU limit/request
+# BestEffort: the Containers in the Pod must not have any memory or cpu limits or requests

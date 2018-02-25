@@ -1,0 +1,121 @@
+# When a ConfigMap already being consumed in a volume is updated, projected keys
+# are eventually updated as well. Kubelet is checking whether the mounted ConfigMap
+# is fresh on every periodic sync. However, it is using its local ttl-based cache
+# for getting the current value of the ConfigMap. As a result, the total delay from
+# the moment when the ConfigMap is updated to the moment when new keys are projected
+# to the pod can be as long as kubelet sync period + ttl of ConfigMaps cache in kubelet.
+
+---
+apiVersion: v1
+data:
+  game-test.properties: |
+    enemies=aliens
+    lives=3
+    enemies.cheat=true
+    enemies.cheat.level=noGoodRotten
+    secret.code.passphrase=UUDDLRLRBABAS
+    secret.code.allowed=true
+    secret.code.lives=30
+  ui-test.properties: |
+    color.good=purple
+    color.bad=yellow
+    allow.textmode=true
+    how.nice.to.look=fairlyNice
+kind: ConfigMap
+metadata:
+  name: game-config-test
+
+
+# Usage
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dapi-test-pod
+spec:
+  containers:
+    - name: test-container
+      image: k8s.gcr.io/busybox
+      command: [ "/bin/sh", "-c", "env" ]
+      env:
+        # Define the environment variable
+        - name: SPECIAL_LEVEL_KEY
+          valueFrom:
+            configMapKeyRef:
+              # The ConfigMap containing the value you want to assign to SPECIAL_LEVEL_KEY
+              name: game-config-test
+              # Specify the key associated with the value
+              key: game-test.properties
+  restartPolicy: Never
+
+
+# Configure all key-value pairs in a ConfigMap as Pod environment variables
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dapi-test-pod
+spec:
+  containers:
+    - name: test-container
+      image: k8s.gcr.io/busybox
+      command: [ "/bin/sh", "-c", "env" ]
+      envFrom:
+      - configMapRef:
+          name: special-config
+  restartPolicy: Never
+
+
+
+# Use ConfigMap-defined environment variables in Pod commands
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dapi-test-pod
+spec:
+  containers:
+    - name: test-container
+      image: k8s.gcr.io/busybox
+      command: [ "/bin/sh", "-c", "echo $(SPECIAL_LEVEL_KEY) $(SPECIAL_TYPE_KEY)" ]
+      env:
+        - name: SPECIAL_LEVEL_KEY
+          valueFrom:
+            configMapKeyRef:
+              name: special-config
+              key: SPECIAL_LEVEL
+        - name: SPECIAL_TYPE_KEY
+          valueFrom:
+            configMapKeyRef:
+              name: special-config
+              key: SPECIAL_TYPE
+  restartPolicy: Never
+
+
+# Populate a Volume with data stored in a ConfigMap
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dapi-test-pod
+spec:
+  containers:
+    - name: test-container
+      image: k8s.gcr.io/busybox
+      command: [ "/bin/sh", "-c", "ls /etc/config/" ]
+      volumeMounts:
+      - name: config-volume
+        mountPath: /etc/config
+  volumes:
+    - name: config-volume
+      configMap:
+        # Provide the name of the ConfigMap containing the files you want
+        # to add to the container
+        name: special-config
+
+        # Optional. Add ConfigMap data to a specific path in the Volume
+        # the command ("cat /etc/config/keys") produces the output below:
+        items:
+          - key: special.level
+            path: keys
+  restartPolicy: Never

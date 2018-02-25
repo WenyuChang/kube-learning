@@ -1,0 +1,33 @@
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: my-service
+spec:
+  selector:
+    app: MyApp
+
+  # You can specify your own cluster IP address as part of a Service creation request.
+  # The IP address that a user chooses must be a valid IP address and within the
+  # service-cluster-ip-range CIDR range that is specified by flag to the API server.
+  # clusterIP: 1.2.3.4
+
+  ports:
+  # Note that a Service can map an incoming port to any targetPort.
+  # By default the targetPort will be set to the same value as the port
+  # field. Perhaps more interesting is that targetPort can be a string,
+  # referring to the name of a port in the backend Pods.
+  # The actual port number assigned to that name can be different in each backend Pod.
+  # This offers a lot of flexibility for deploying and evolving your Services.
+  # Kubernetes Services support TCP and UDP for protocols. The default is TCP.
+
+  # When using multiple ports you must give all of your ports names,
+  # so that endpoints can be disambiguated.
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 9376
+  - name: https
+    protocol: TCP
+    port: 443
+    targetPort: 9377

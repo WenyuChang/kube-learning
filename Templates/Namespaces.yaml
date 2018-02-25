@@ -1,0 +1,2 @@
+# kubectl create namespace qos-example
+# kubectl delete namespace qos-example

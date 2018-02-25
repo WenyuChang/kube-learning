@@ -1,0 +1,50 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pi
+spec:
+  # the job is complete when there is one successful pod
+  # for each value in the range 1 to .spec.completions
+
+  # * For a Non-parallel job, you can leave both .spec.completions and .spec.parallelism unset.
+  #   When both are unset, both are defaulted to 1.
+  # * For a Fixed Completion Count job, you should set .spec.completions to the number of
+  #   completions needed. You can set .spec.parallelism, or leave it unset and it will default to 1.
+  # * For a Work Queue Job, you must leave .spec.completions unset, and set .spec.parallelism
+  #   to a non-negative integer.
+  completions: 1
+
+  parallelism: 1
+
+  # specify the number of retries before considering a Job as failed
+  backoffLimit: 4
+
+  # set a deadline on the job
+  activeDeadlineSeconds: 600
+
+  # It stands for the deadline (in seconds) for starting the
+  # job if it misses its scheduled time for any reason.
+  startingDeadlineSeconds: 60000
+
+  #  It specifies how to treat concurrent executions of a job created by this
+  # cron job. Only one of the following concurrent policies may be specified:
+  # 1. Allow (default): allows concurrently running jobs
+  # 2. Forbid: forbids concurrent runs, skipping next run if previous hasn’t finished yet
+  # 3. Replace: cancels currently running job and replaces it with a new one
+  concurrencyPolicy: Allow
+
+  # If set to true, all subsequent executions will be suspended.
+  # It does not apply to already started executions
+  Suspend: false
+
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  template:
+    spec:
+      containers:
+      - name: pi
+        image: perl
+        command: ["perl",  "-Mbignum=bpi", "-wle", "print bpi(2000)"]
+      restartPolicy: Never
+  backoffLimit: 4

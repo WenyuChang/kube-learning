@@ -1,0 +1,146 @@
+# Deployment and Scaling Guarantees:
+# For a StatefulSet with N replicas, when Pods are being deployed, they are created sequentially, in order from {0..N-1}.
+# When Pods are being deleted, they are terminated in reverse order, from {N-1..0}.
+# Before a scaling operation is applied to a Pod, all of its predecessors must be Running and Ready.
+# Before a Pod is terminated, all of its successors must be completely shutdown.
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-statefulsets
+  labels:
+    app: nginx-statefulsets
+spec:
+  ports:
+  - port: 80
+    name: web
+  clusterIP: None
+  selector:
+    app: nginx-statefulsets
+
+---
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: nginx-statefulsets-pv-volume
+  labels:
+    type: local
+spec:
+  storageClassName: nginx-statefulsets-classname
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/data"
+
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: www-pvc
+spec:
+  storageClassName: nginx-statefulsets-classname
+  accessModes: [ "ReadWriteOnce" ]
+  selector:
+    matchLabels:
+      type: local
+  resources:
+    requests:
+      storage: 10Mi
+
+---
+apiVersion: apps/v1beta2
+kind: StatefulSet
+metadata:
+  name: web-statefulsets
+spec:
+  selector:
+    matchLabels:
+      app: nginx-statefulsets # has to match .spec.template.metadata.labels
+  serviceName: "nginx"
+  replicas: 1 # by default is 1
+  # 1. OrderedReady pod management is the default for StatefulSets.
+  # 2. Parallel pod management tells the StatefulSet controller to launch or terminate
+  #    all Pods in parallel, and to not wait for Pods to become Running and Ready or
+  #    completely terminated prior to launching or terminating another Pod.
+  updateStrategy:
+    # OnDelete
+    # RollingUpdate (default)
+    # RollingUpdate with partition by specifying a `.spec.updateStrategy.rollingUpdate.partition`
+    type: RollingUpdate
+  podManagementPolicy: OrderedReady
+  revisionHistoryLimit: 10
+  template:
+    metadata:
+      labels:
+        app: nginx-statefulsets # has to match .spec.selector.matchLabels
+    spec:
+      # pods are assigned a DNS A record in the form of “pod-ip-address.my-namespace.pod.cluster.local”.
+      # For example, a pod with IP 1.2.3.4 in the namespace default with a DNS name of cluster.local
+      # would have an entry: 1-2-3-4.default.pod.cluster.local.
+      #
+      # The Pod spec has an optional hostname field, which can be used to specify the Pod’s hostname.
+      # For example, given a Pod with hostname set to “my-host”, the Pod will have its hostname set to “my-host”.
+      # The Pod spec also has an optional subdomain field which can be used to specify its subdomain.
+      # For example, a Pod with hostname set to “foo”, and subdomain set to “bar”, in namespace “my-namespace”,
+      # will have the fully qualified domain name (FQDN) “foo.bar.my-namespace.svc.cluster.local”.
+      hostname: pod-hostname-test
+      subdomain: pod-subdomain-test
+      terminationGracePeriodSeconds: 10
+      # Reference to Pods.yaml
+      securityContext:
+        runAsUser: 1000
+        fsGroup: 2000
+      containers:
+      - name: nginx
+        image: nginx:1.13.9-alpine
+        imagePullPolicy: IfNotPresent
+        # AllowPrivilegeEscalation: Controls whether a process can gain more privileges than its parent process.
+        securityContext:
+          # Specify security context for container
+          # runAsUser: 2000
+          allowPrivilegeEscalation: false
+        ports:
+          - containerPort: 80
+            name: web
+            protocol: TCP
+        resources:
+          limits:
+            memory: 100Mi
+          requests:
+            # Reference to Pods.yaml
+            cpu: 100m
+            memory: 50Mi
+        volumeMounts:
+          - name: www-volume
+            mountPath: /usr/share/nginx/html
+            args:
+              # Reference to Pods.yaml
+              - -mem-total
+              - 150Mi
+              - -mem-alloc-size
+              - 10Mi
+              - -mem-alloc-sleep
+              - 1s
+
+        # Kubernetes retrieves termination messages from the termination message file
+        # specified in the terminationMessagePath field of a Container, which as a
+        # default value of /dev/termination-log
+        terminationMessagePath: /dev/termination-log
+        # Default is `File`.
+        # You can set to `FallbackToLogsOnError”` telling Kubernetes to use the last chunk of container log output if
+        # the termination message file is empty and the container exited with an error. The log output is limited to
+        # 2048 bytes or 80 lines, whichever is smaller.
+        terminationMessagePolicy: File
+
+      # 1. "OnFailure", then the Pod stays on the node, but the Container is re-run.
+      #     Therefore, your program needs to handle the case when it is restarted locally, or else specify
+      # 2.
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 10
+      volumes:
+        - name: www-volume
+          persistentVolumeClaim:
+            claimName: www-pvc

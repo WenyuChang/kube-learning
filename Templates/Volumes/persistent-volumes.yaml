@@ -1,0 +1,46 @@
+---
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: nginx-statefulsets-pv-volume
+  labels:
+    type: local
+spec:
+  # A PV of a particular class can only be bound to PVCs requesting that class
+  # A PV with no storageClassName has no class and can only be bound to PVCs that request no particular class.
+  storageClassName: nginx-statefulsets-classname
+  capacity:
+    # Currently, storage size is the only resource that can be set or requested.
+    # Future attributes may include IOPS, throughput, etc.
+    # Ei, Pi, Ti, Gi, Mi, Ki
+    storage: 1Gi
+  volumeMode: Filesystem
+  accessModes:
+    # ReadWriteOnce – the volume can be mounted as read-write by a single node
+    # ReadOnlyMany – the volume can be mounted read-only by many nodes
+    # ReadWriteMany – the volume can be mounted as read-write by many nodes
+    - ReadWriteOnce
+  hostPath:
+    path: "/data"
+
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: test-pv
+spec:
+  capacity:
+    storage: 5Gi
+  # Valid values for volumeMode are “Filesystem” or “Block” (raw block devices).
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retaining
+  storageClassName: slow
+  mountOptions:
+    - hard
+    - nfsvers=4.1
+  nfs:
+    path: /tmp
+    server: 172.17.0.2
