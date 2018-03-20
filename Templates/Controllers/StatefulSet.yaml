@@ -93,6 +93,35 @@ spec:
       securityContext:
         runAsUser: 1000
         fsGroup: 2000
+        # This means that the pod will get scheduled on a node that has a disktype=ssd label.
+        # nodeSelector:
+        #   disktype: ssd
+        # Affinity and anti-affinity
+        # You can see the operator In being used in the example. The new node affinity syntax supports the
+        # following operators: In, NotIn, Exists, DoesNotExist, Gt, Lt. There is no explicit “node anti-affinity”
+        # concept, but NotIn and DoesNotExist give that behavior.
+        # If you specify both nodeSelector and nodeAffinity, both must be satisfied for the pod to be scheduled
+        # onto a candidate node.
+        #  affinity:
+        #    nodeAffinity:
+        #      # hard requirement for node selection
+        #      requiredDuringSchedulingIgnoredDuringExecution:
+        #        nodeSelectorTerms:
+        #        - matchExpressions:
+        #          - key: kubernetes.io/e2e-az-name
+        #            operator: In
+        #            values:
+        #            - e2e-az1
+        #            - e2e-az2
+        #      # soft requirement for node selection
+        #      preferredDuringSchedulingIgnoredDuringExecution:
+        #      - weight: 1
+        #        preference:
+        #          matchExpressions:
+        #          - key: another-node-label-key
+        #            operator: In
+        #            values:
+        #            - another-node-label-value
       containers:
       - name: nginx
         image: nginx:1.13.9-alpine
